@@ -1,0 +1,11 @@
+{
+  "name": "karuna",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "packageManager": "npm@10.8.1",
+  "scripts": {
+    "dev": "npm -w apps/web run dev",
+    "build": "npm -w apps/web run build",
+    "preview": "npm -w apps/web run preview"
+  }
+}
