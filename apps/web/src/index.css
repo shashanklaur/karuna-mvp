@@ -2,8 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base typography + background */
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    /* Creamy Karuna background (literal for compatibility) */
+    background-color: #FAF8F5;
+    color: #3B3B3B;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3 {
+    @apply font-semibold text-gray-900;
+  }
+}
+
 /* Accessible focus ring */
 :focus-visible {
-  outline: 3px solid #a3dec0;
+  outline: 3px solid #bfe8de;
   outline-offset: 2px;
+}
+
+/* Utility tweaks */
+.card {
+  @apply bg-white rounded-2xl border shadow-md;
+}
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2 transition;
+}
+.btn-primary {
+  @apply btn bg-emerald-600 text-white hover:bg-emerald-700;
+}
+.btn-secondary {
+  @apply btn border hover:bg-gray-50;
 }

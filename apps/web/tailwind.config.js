@@ -1,16 +1,25 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{ts,tsx}"
+  ],
   theme: {
     extend: {
       colors: {
-        brand: {
-          100: "#e6f6ef",
-          200: "#c7ebd7",
-          500: "#32b47a",
-          600: "#289468",
-          700: "#217655"
+        karuna: {
+          bg: "#FAF8F5",   // creamy background
+          teal: "#3ABAB4", // primary accent
+          sage: "#B5CDA3", // secondary
+          coral: "#E57373" // gentle error
         }
+      },
+      boxShadow: {
+        soft: "0 6px 24px rgba(0,0,0,0.06)",
+      },
+      borderRadius: {
+        xl: "1rem",
+        "2xl": "1.25rem",
       }
     }
   },

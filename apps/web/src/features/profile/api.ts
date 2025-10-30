@@ -1,9 +1,14 @@
 import { getMe, updateMe, getUser } from "../../lib/mockServer";
-// For now our mockServer only exposes getMe/updateMe/getUser minimal stubs.
-// If yours is missing getUser/updateMe, profile page will just show "Please log in".
+import type { User } from "../../lib/types";
 
 export const profileApi = {
-  me: () => getMe(),
-  update: (partial: { name?: string; city?: string; tags?: string[]; avatarUrl?: string }) => updateMe(partial),
-  get: (id: string) => getUser(id)
+  async me(): Promise<User | null> {
+    return getMe();
+  },
+  async update(partial: Partial<User>): Promise<User> {
+    return updateMe(partial);
+  },
+  async getUser(id: string): Promise<User | null> {
+    return getUser(id);
+  }
 };

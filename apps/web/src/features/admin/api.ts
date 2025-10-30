@@ -1,8 +1,11 @@
-import { listReports, closeReport, createReport } from "../../lib/mockServer";
+import { listReports, closeReport } from "../../lib/mockServer";
+import type { Report } from "../../lib/types";
 
 export const adminApi = {
-  list: () => listReports(),
-  close: (id: string) => closeReport(id),
-  create: (payload: { reporterId: string; targetUserId?: string; targetPostId?: string; reason: string }) =>
-    createReport(payload)
+  async list(): Promise<Report[]> {
+    return listReports();
+  },
+  async close(id: string): Promise<Report> {
+    return closeReport(id);
+  }
 };

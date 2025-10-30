@@ -1,12 +1,19 @@
 export type Id = string;
 
-/* Posts */
-export type PostType = "offer" | "request";
+export interface User {
+  _id: Id;
+  name: string;
+  email?: string;
+  city?: string;
+  tags: string[];
+  avatarUrl?: string;
+  role?: "user" | "admin";
+}
 
 export interface ServicePost {
   _id: Id;
   ownerId: Id;
-  type: PostType;
+  type: "offer" | "request";
   title: string;
   description: string;
   tags: string[];
@@ -15,16 +22,6 @@ export interface ServicePost {
   updatedAt: string;
 }
 
-/* Users (minimal for profile) */
-export interface User {
-  _id: Id;
-  name: string;
-  city?: string;
-  tags?: string[];
-  avatarUrl?: string;
-}
-
-/* Admin reports (minimal) */
 export interface Report {
   _id: Id;
   reporterId: Id;

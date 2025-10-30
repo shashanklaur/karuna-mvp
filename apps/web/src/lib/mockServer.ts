@@ -1,42 +1,63 @@
 import type { ServicePost, Id, User, Report } from "./types";
 
-/** Simple localStorage-backed mock server */
+/**
+ * Karuna Mock Server
+ * ------------------
+ * LocalStorage-based backend simulation for development and demos.
+ * Provides:
+ *  - Auth & Profile
+ *  - Posts CRUD (read/create)
+ *  - Connections, Messages, Gratitude
+ *  - Reports (admin)
+ */
 
 const LS = {
   users: "karuna.users",
   me: "karuna.me",
+  auth: "karuna.auth",
   posts: "karuna.posts",
   connections: "karuna.connections",
   messages: "karuna.messages",
   gratitude: "karuna.gratitude",
-  reports: "karuna.reports"
+  reports: "karuna.reports",
 };
 
 const now = () => new Date().toISOString();
 const rid = () => Math.random().toString(36).slice(2, 10);
+const emailKey = (e: string) => e.trim().toLowerCase();
+const delay = (ms = 200) => new Promise((res) => setTimeout(res, ms));
 
-function load<T>(k: string, def: T): T {
-  const v = localStorage.getItem(k);
-  return v ? (JSON.parse(v) as T) : def;
+function load<T>(key: string, def: T): T {
+  const raw = localStorage.getItem(key);
+  return raw ? (JSON.parse(raw) as T) : def;
 }
-function save<T>(k: string, v: T) {
-  localStorage.setItem(k, JSON.stringify(v));
+function save<T>(key: string, value: T) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
-/** Seed sample data on first run */
+/* =========================================================
+   SEED INITIAL DATA (runs once)
+   ========================================================= */
 (function seed() {
   if (!localStorage.getItem(LS.users)) {
     const users: User[] = [
-      { _id: "u1", name: "Aisha", city: "Toronto", tags: ["guitar", "listening"] },
-      { _id: "u2", name: "Brian", city: "Mississauga", tags: ["coding"] },
-      { _id: "me", name: "You", city: "Toronto", tags: ["coding", "guitar"] }
+      { _id: "u1", name: "Aisha", city: "Toronto", tags: ["guitar", "listening"], role: "user" },
+      { _id: "u2", name: "Brian", city: "Mississauga", tags: ["coding"], role: "user" },
+      { _id: "admin1", name: "Admin", city: "Toronto", tags: ["moderation"], role: "admin" },
+      { _id: "me", name: "You", city: "Toronto", tags: ["coding", "guitar"], role: "user" },
     ];
     save(LS.users, users);
   }
-  if (!localStorage.getItem(LS.me)) {
-    const me = { _id: "me", name: "You", city: "Toronto", tags: ["coding", "guitar"] };
-    save(LS.me, me);
+
+  if (!localStorage.getItem(LS.auth)) {
+    const users = load<User[]>(LS.users, []);
+    const creds: Record<string, { userId: Id; password: string }> = {};
+    users.forEach((u) => {
+      creds[emailKey(u.name + "@example.com")] = { userId: u._id, password: "password" };
+    });
+    save(LS.auth, creds);
   }
+
   if (!localStorage.getItem(LS.posts)) {
     const posts: ServicePost[] = [
       {
@@ -45,10 +66,10 @@ function save<T>(k: string, v: T) {
         type: "offer",
         title: "Guitar basics for beginners",
         description: "Chords & strumming in 3 sessions.",
-        tags: ["guitar"],
+        tags: ["guitar", "music", "teaching"],
         city: "Toronto",
         createdAt: now(),
-        updatedAt: now()
+        updatedAt: now(),
       },
       {
         _id: "p2",
@@ -56,42 +77,84 @@ function save<T>(k: string, v: T) {
         type: "offer",
         title: "JS Pair Programming",
         description: "Stuck on React? Let’s pair for an hour.",
-        tags: ["coding"],
+        tags: ["coding", "mentorship"],
         city: "Mississauga",
         createdAt: now(),
-        updatedAt: now()
+        updatedAt: now(),
       },
-      {
-        _id: "p3",
-        ownerId: "u1",
-        type: "request",
-        title: "Resume wording help",
-        description: "Need candid feedback on resume.",
-        tags: ["resume"],
-        city: "Toronto",
-        createdAt: now(),
-        updatedAt: now()
-      }
     ];
     save(LS.posts, posts);
   }
+
   if (!localStorage.getItem(LS.connections)) save(LS.connections, []);
   if (!localStorage.getItem(LS.messages)) save(LS.messages, []);
   if (!localStorage.getItem(LS.gratitude)) save(LS.gratitude, []);
   if (!localStorage.getItem(LS.reports)) save(LS.reports, []);
 })();
 
-/** AUTH / PROFILE */
+/* =========================================================
+   AUTH / PROFILE
+   ========================================================= */
 export async function getMe(): Promise<User | null> {
-  return load<User | null>(LS.me, null);
+  await delay();
+  const me = load<User | null>(LS.me, null);
+  if (!me) return null;
+  const users = load<User[]>(LS.users, []);
+  return users.find((u) => u._id === me._id) ?? null;
 }
 
-export async function updateMe(partial: Partial<Pick<User, "name" | "city" | "tags" | "avatarUrl">>): Promise<User> {
+export async function registerUser(input: {
+  name: string;
+  email: string;
+  password: string;
+  city?: string;
+}): Promise<User> {
+  await delay();
+  const users = load<User[]>(LS.users, []);
+  const auth = load<Record<string, { userId: Id; password: string }>>(LS.auth, {});
+  const key = emailKey(input.email);
+  if (auth[key]) throw new Error("Email already exists");
+
+  const user: User = {
+    _id: rid(),
+    name: input.name.trim(),
+    city: input.city?.trim(),
+    tags: [],
+    role: "user",
+  };
+  users.push(user);
+  auth[key] = { userId: user._id, password: input.password };
+  save(LS.users, users);
+  save(LS.auth, auth);
+  save(LS.me, user);
+  return user;
+}
+
+export async function loginUser(email: string, password: string): Promise<User> {
+  await delay();
+  const users = load<User[]>(LS.users, []);
+  const auth = load<Record<string, { userId: Id; password: string }>>(LS.auth, {});
+  const key = emailKey(email);
+  const entry = auth[key];
+  if (!entry || entry.password !== password) throw new Error("Invalid email or password");
+  const user = users.find((u) => u._id === entry.userId);
+  if (!user) throw new Error("User not found");
+  save(LS.me, user);
+  return user;
+}
+
+export async function logoutUser(): Promise<void> {
+  await delay();
+  save<User | null>(LS.me, null);
+}
+
+export async function updateMe(partial: Partial<User>): Promise<User> {
+  await delay();
   const me = load<User | null>(LS.me, null);
   if (!me) throw new Error("Not authenticated");
   const users = load<User[]>(LS.users, []);
   const idx = users.findIndex((u) => u._id === me._id);
-  const updated: User = { ...me, ...partial };
+  const updated = { ...me, ...partial };
   if (idx >= 0) users[idx] = updated;
   save(LS.users, users);
   save(LS.me, updated);
@@ -99,32 +162,37 @@ export async function updateMe(partial: Partial<Pick<User, "name" | "city" | "ta
 }
 
 export async function getUser(id: Id): Promise<User | null> {
+  await delay();
   const users = load<User[]>(LS.users, []);
   return users.find((u) => u._id === id) ?? null;
 }
 
-/** POSTS */
+/* =========================================================
+   POSTS
+   ========================================================= */
 export async function listPosts(params: {
   type?: "offer" | "request";
   city?: string;
   tag?: string;
   q?: string;
 }): Promise<ServicePost[]> {
+  await delay();
   const posts = load<ServicePost[]>(LS.posts, []);
   return posts
     .filter((p) => {
-      const a = params.type ? p.type === params.type : true;
-      const b = params.city ? p.city === params.city : true;
-      const c = params.tag ? p.tags.includes(params.tag) : true;
-      const d = params.q
+      const matchesType = params.type ? p.type === params.type : true;
+      const matchesCity = params.city ? p.city === params.city : true;
+      const matchesTag = params.tag ? p.tags.includes(params.tag) : true;
+      const matchesQuery = params.q
         ? (p.title + p.description).toLowerCase().includes(params.q.toLowerCase())
         : true;
-      return a && b && c && d;
+      return matchesType && matchesCity && matchesTag && matchesQuery;
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getPost(id: Id): Promise<ServicePost | null> {
+  await delay();
   const posts = load<ServicePost[]>(LS.posts, []);
   return posts.find((p) => p._id === id) ?? null;
 }
@@ -136,24 +204,28 @@ export async function createPost(input: {
   tags: string[];
   city: string;
 }): Promise<ServicePost> {
+  await delay();
   const posts = load<ServicePost[]>(LS.posts, []);
+  const me = load<User | null>(LS.me, null);
   const post: ServicePost = {
     _id: rid(),
-    ownerId: "me", // mock current user
+    ownerId: me?._id ?? "me",
     type: input.type,
     title: input.title.trim(),
     description: input.description.trim(),
     tags: input.tags,
     city: input.city,
     createdAt: now(),
-    updatedAt: now()
+    updatedAt: now(),
   };
   posts.unshift(post);
   save(LS.posts, posts);
   return post;
 }
 
-/** CONNECTIONS + MESSAGES (internal simple types) */
+/* =========================================================
+   CONNECTIONS / MESSAGES / GRATITUDE
+   ========================================================= */
 type ConnectionStatus = "active" | "completed" | "cancelled";
 export interface Connection {
   _id: Id;
@@ -181,10 +253,10 @@ export interface GratitudeNote {
 }
 
 export async function ensureConnection(postId: Id, partnerId: Id): Promise<Connection> {
+  await delay();
   const me = await getMe();
   if (!me) throw new Error("Not authenticated");
   const cons = load<Connection[]>(LS.connections, []);
-  // Reuse if either-direction connection exists for this post
   const existing = cons.find(
     (c) =>
       c.postId === postId &&
@@ -203,7 +275,7 @@ export async function ensureConnection(postId: Id, partnerId: Id): Promise<Conne
     partnerId,
     status: "active",
     createdAt: now(),
-    updatedAt: now()
+    updatedAt: now(),
   };
   cons.unshift(created);
   save(LS.connections, cons);
@@ -211,6 +283,7 @@ export async function ensureConnection(postId: Id, partnerId: Id): Promise<Conne
 }
 
 export async function listConnections(): Promise<Connection[]> {
+  await delay();
   const me = await getMe();
   if (!me) return [];
   const cons = load<Connection[]>(LS.connections, []);
@@ -218,11 +291,13 @@ export async function listConnections(): Promise<Connection[]> {
 }
 
 export async function getConnection(id: Id): Promise<Connection | null> {
+  await delay();
   const cons = load<Connection[]>(LS.connections, []);
   return cons.find((c) => c._id === id) ?? null;
 }
 
 export async function updateConnectionStatus(id: Id, status: ConnectionStatus): Promise<Connection> {
+  await delay();
   const cons = load<Connection[]>(LS.connections, []);
   const i = cons.findIndex((c) => c._id === id);
   if (i < 0) throw new Error("Connection not found");
@@ -232,6 +307,7 @@ export async function updateConnectionStatus(id: Id, status: ConnectionStatus): 
 }
 
 export async function listMessages(connectionId: Id): Promise<Message[]> {
+  await delay();
   const msgs = load<Message[]>(LS.messages, []);
   return msgs
     .filter((m) => m.connectionId === connectionId)
@@ -239,6 +315,7 @@ export async function listMessages(connectionId: Id): Promise<Message[]> {
 }
 
 export async function sendMessage(connectionId: Id, body: string): Promise<Message> {
+  await delay();
   const me = await getMe();
   if (!me) throw new Error("Not authenticated");
   const msg: Message = {
@@ -246,7 +323,7 @@ export async function sendMessage(connectionId: Id, body: string): Promise<Messa
     connectionId,
     senderId: me._id,
     body,
-    createdAt: now()
+    createdAt: now(),
   };
   const msgs = load<Message[]>(LS.messages, []);
   msgs.push(msg);
@@ -254,8 +331,8 @@ export async function sendMessage(connectionId: Id, body: string): Promise<Messa
   return msg;
 }
 
-/** GRATITUDE */
 export async function createGratitude(connectionId: Id, toUserId: Id, text: string): Promise<GratitudeNote> {
+  await delay();
   const me = await getMe();
   if (!me) throw new Error("Not authenticated");
   const note: GratitudeNote = {
@@ -264,7 +341,7 @@ export async function createGratitude(connectionId: Id, toUserId: Id, text: stri
     fromUserId: me._id,
     toUserId,
     text,
-    createdAt: now()
+    createdAt: now(),
   };
   const list = load<GratitudeNote[]>(LS.gratitude, []);
   list.unshift(note);
@@ -273,14 +350,18 @@ export async function createGratitude(connectionId: Id, toUserId: Id, text: stri
 }
 
 export async function listMyGratitude(): Promise<GratitudeNote[]> {
+  await delay();
   const me = await getMe();
   if (!me) return [];
   const list = load<GratitudeNote[]>(LS.gratitude, []);
   return list.filter((n) => n.fromUserId === me._id || n.toUserId === me._id);
 }
 
-/** ADMIN: Reports */
+/* =========================================================
+   ADMIN REPORTS
+   ========================================================= */
 export async function listReports(): Promise<Report[]> {
+  await delay();
   return load<Report[]>(LS.reports, []);
 }
 
@@ -290,7 +371,8 @@ export async function createReport(payload: {
   targetPostId?: Id;
   reason: string;
 }): Promise<Report> {
-  const r: Report = {
+  await delay();
+  const report: Report = {
     _id: rid(),
     reporterId: payload.reporterId,
     targetUserId: payload.targetUserId,
@@ -298,15 +380,16 @@ export async function createReport(payload: {
     reason: payload.reason,
     status: "open",
     createdAt: now(),
-    updatedAt: now()
+    updatedAt: now(),
   };
   const list = load<Report[]>(LS.reports, []);
-  list.unshift(r);
+  list.unshift(report);
   save(LS.reports, list);
-  return r;
+  return report;
 }
 
 export async function closeReport(id: Id): Promise<Report> {
+  await delay();
   const list = load<Report[]>(LS.reports, []);
   const i = list.findIndex((x) => x._id === id);
   if (i < 0) throw new Error("Report not found");

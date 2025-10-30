@@ -1,41 +1,53 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { postsApi } from "./api";
 import { connectApi } from "../connect/api";
+import { getUser } from "../../lib/mockServer";
+import type { User } from "../../lib/types";
 
 export default function PostDetail() {
   const { id } = useParams();
   const nav = useNavigate();
+  const [owner, setOwner] = useState<User | null>(null);
 
   const { data: post, isLoading } = useQuery({
     queryKey: ["post", id],
     queryFn: () => postsApi.get(id!),
-    enabled: !!id
+    enabled: !!id,
   });
+
+  useEffect(() => {
+    if (post) getUser(post.ownerId).then(setOwner);
+  }, [post]);
 
   const connect = useMutation({
     mutationFn: async () => {
       if (!post) throw new Error("Missing post");
-      // connect with the post owner
       const c = await connectApi.connectToPost(post._id, post.ownerId);
       return c;
     },
-    onSuccess: (c) => nav(`/connections/${c._id}`)
+    onSuccess: (c) => nav(`/connections/${c._id}`),
   });
 
-  if (isLoading) return <p className="p-4">Loading…</p>;
-  if (!post) return <p className="p-4">Not found.</p>;
+  if (isLoading) return <div className="card p-6">Loading…</div>;
+  if (!post) return <div className="card p-6">Not found.</div>;
 
-  const isOwner = post.ownerId === "me"; // our mock "current user"
+  const isOwner = post.ownerId === "me";
 
   return (
-    <article className="max-w-3xl mx-auto bg-white rounded-2xl p-6 shadow-sm border">
+    <article className="card p-6 space-y-3">
       <div className="text-xs uppercase text-gray-500">{post.type}</div>
       <h1 className="text-2xl font-bold">{post.title}</h1>
-      <p className="text-gray-600 mt-2">{post.description}</p>
-      <p className="text-sm text-gray-500 mt-1">City: {post.city}</p>
+      {owner && (
+        <p className="text-sm text-gray-500">
+          Posted by <strong>{owner.name}</strong>
+          {owner.city ? ` • ${owner.city}` : ""}
+        </p>
+      )}
+      <p className="text-gray-700">{post.description}</p>
 
-      <div className="flex gap-2 my-3 flex-wrap">
+      <div className="flex gap-2 my-2 flex-wrap">
         {post.tags.map((t) => (
           <span key={t} className="text-xs bg-gray-100 px-2 py-1 rounded">
             {t}
@@ -43,18 +55,15 @@ export default function PostDetail() {
         ))}
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-2 flex gap-2">
         <button
           onClick={() => connect.mutate()}
           disabled={isOwner || connect.isPending}
-          className="bg-emerald-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 disabled:cursor-not-allowed"
-          aria-disabled={isOwner || connect.isPending}
+          className="btn btn-primary disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
           {isOwner ? "You own this post" : connect.isPending ? "Connecting…" : "Send Invitation"}
         </button>
-        <button onClick={() => nav(-1)} className="px-4 py-2 rounded-xl border">
-          Back
-        </button>
+        <button onClick={() => nav(-1)} className="btn btn-secondary">Back</button>
       </div>
     </article>
   );

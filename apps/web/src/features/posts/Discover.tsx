@@ -3,122 +3,85 @@ import { useMemo, useState } from "react";
 import { postsApi } from "./api";
 import PostCard from "../../components/data/PostCard";
 
-const TAGS = ["coding", "guitar", "groceries", "tutoring", "listening", "yoga", "resume", "math"];
-const CITIES = ["Toronto", "Mississauga", "Brampton", "Etobicoke"];
-const PAGE_SIZE = 10;
+type Tab = "all" | "offer" | "request";
 
 export default function Discover() {
-  const [tab, setTab] = useState<"offers" | "requests">("offers");
-  const [city, setCity] = useState("");
-  const [tag, setTag] = useState("");
+  const [tab, setTab] = useState<Tab>("all");
   const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
+  const [city, setCity] = useState("");
 
-  const type = tab === "offers" ? "offer" : ("request" as const);
+  const params = useMemo(() => {
+    return {
+      type: tab === "all" ? undefined : tab,
+      q: q.trim() || undefined,
+      city: city || undefined
+    } as { type?: "offer" | "request"; q?: string; city?: string };
+  }, [tab, q, city]);
 
-  const { data } = useQuery({
-    queryKey: ["posts", type, city, tag, q],
-    queryFn: () => postsApi.list({ type, city: city || undefined, tag: tag || undefined, q: q || undefined })
+  const { data: posts = [], isLoading } = useQuery({
+    queryKey: ["posts", params],
+    queryFn: () => postsApi.list(params)
   });
 
-  const list = useMemo(() => data ?? [], [data]);
-  const start = (page - 1) * PAGE_SIZE;
-  const paged = list.slice(start, start + PAGE_SIZE);
-
   return (
-    <section className="max-w-6xl mx-auto p-4 space-y-4">
-      <h1 className="text-2xl font-bold">Discover</h1>
+    <section>
+      <header className="mb-4">
+        <h1 className="text-2xl font-bold">Discover</h1>
+        <p className="text-gray-600">Browse offers and requests from your community.</p>
+      </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label="Post type" className="flex gap-2">
-          <button
-            role="tab"
-            aria-selected={tab === "offers"}
-            aria-controls="offers-panel"
-            className={`px-3 py-1 rounded-xl ${tab === "offers" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100"}`}
-            onClick={() => {
-              setTab("offers");
-              setPage(1);
-            }}
+      {/* Filters */}
+      <div className="card p-3 mb-4">
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
+            {(["all", "offer", "request"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3 py-1 rounded-lg capitalize ${
+                  tab === t ? "bg-white border shadow-sm" : "opacity-70"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by title or description…"
+            className="border rounded-xl px-3 py-2 flex-1 min-w-56"
+          />
+
+          <select
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            className="border rounded-xl px-3 py-2"
           >
-            Offers
-          </button>
-          <button
-            role="tab"
-            aria-selected={tab === "requests"}
-            aria-controls="requests-panel"
-            className={`px-3 py-1 rounded-xl ${tab === "requests" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100"}`}
-            onClick={() => {
-              setTab("requests");
-              setPage(1);
-            }}
-          >
-            Requests
-          </button>
+            <option value="">All cities</option>
+            {["Toronto", "Mississauga", "Brampton", "Etobicoke", "Scarborough", "Vaughan"].map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
-
-        <input
-          className="ml-auto border rounded-xl px-3 py-1"
-          placeholder="Search…"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
-        />
-        <select
-          className="border rounded-xl px-3 py-1"
-          value={city}
-          onChange={(e) => {
-            setCity(e.target.value);
-            setPage(1);
-          }}
-          aria-label="Filter by city"
-        >
-          <option value="">All cities</option>
-          {CITIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <select
-          className="border rounded-xl px-3 py-1"
-          value={tag}
-          onChange={(e) => {
-            setTag(e.target.value);
-            setPage(1);
-          }}
-          aria-label="Filter by tag"
-        >
-          <option value="">All tags</option>
-          {TAGS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
       </div>
 
-      <ul id={tab === "offers" ? "offers-panel" : "requests-panel"} role="tabpanel" className="grid md:grid-cols-2 gap-3">
-        {paged.map((p) => (
-          <PostCard key={p._id} p={p} />
-        ))}
-        {paged.length === 0 && <li className="text-sm text-gray-500">No results.</li>}
-      </ul>
-
-      <div className="flex gap-2 justify-end">
-        <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1 border rounded-xl">
-          Prev
-        </button>
-        <button
-          disabled={start + PAGE_SIZE >= list.length}
-          onClick={() => setPage((p) => p + 1)}
-          className="px-3 py-1 border rounded-xl"
-        >
-          Next
-        </button>
-      </div>
+      {/* Results */}
+      {isLoading ? (
+        <div className="card p-6 text-gray-600">Loading…</div>
+      ) : posts.length === 0 ? (
+        <div className="card p-6 text-gray-600">
+          No posts found. Try a different filter or{" "}
+          <span className="font-medium">publish a new one</span>.
+        </div>
+      ) : (
+        <ul className="grid gap-3 md:grid-cols-2">
+          {posts.map((p) => (
+            <PostCard key={p._id} p={p} />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

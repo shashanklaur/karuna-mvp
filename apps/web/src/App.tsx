@@ -15,53 +15,61 @@ import PublicProfile from "./features/profile/PublicProfile";
 
 import Reports from "./features/admin/Reports";
 
-function Page({ title, note }: { title: string; note?: string }) {
-  return (
-    <section className="max-w-6xl mx-auto p-4">
-      <h1 className="text-2xl font-bold">{title}</h1>
-      {note && <p className="text-gray-600 mt-2">{note}</p>}
-      <div className="mt-6 p-6 bg-white rounded-2xl border shadow-sm">
-        <p className="text-gray-500">This is a placeholder.</p>
-      </div>
-    </section>
-  );
-}
+import Login from "./features/auth/Login";
+import Register from "./features/auth/Register";
 
 export default function App() {
   return (
-    <div className="min-h-screen text-gray-900">
-      <a href="#main" className="sr-only focus:not-sr-only focus:block p-2 bg-white">Skip to content</a>
+    <div className="min-h-screen flex flex-col">
+      <a href="#main" className="sr-only focus:not-sr-only focus:block p-2 bg-white">
+        Skip to content
+      </a>
+
       <Navbar />
-      <main id="main">
-        <Routes>
-          <Route path="/" element={<Discover />} />
 
-          {/* Posts */}
-          <Route path="/post" element={<PostForm />} />
-          <Route path="/service/:id" element={<PostDetail />} />
+      <main id="main" className="flex-1">
+        <div className="max-w-6xl mx-auto p-4">
+          <Routes>
+            {/* Discover */}
+            <Route path="/" element={<Discover />} />
 
-          {/* Connections */}
-          <Route path="/connections" element={<Connections />} />
-          <Route path="/connections/:id" element={<Thread />} />
+            {/* Posts */}
+            <Route path="/post" element={<PostForm />} />
+            <Route path="/service/:id" element={<PostDetail />} />
 
-          {/* Gratitude */}
-          <Route path="/gratitude" element={<GratitudeList />} />
+            {/* Connections */}
+            <Route path="/connections" element={<Connections />} />
+            <Route path="/connections/:id" element={<Thread />} />
 
-          {/* Profile */}
-          <Route path="/profile" element={<Me />} />
-          <Route path="/u/:id" element={<PublicProfile />} />
+            {/* Gratitude */}
+            <Route path="/gratitude" element={<GratitudeList />} />
 
-          {/* Admin */}
-          <Route path="/admin/reports" element={<Reports />} />
+            {/* Profile */}
+            <Route path="/profile" element={<Me />} />
+            <Route path="/u/:id" element={<PublicProfile />} />
 
-          {/* Auth placeholders for later */}
-          <Route path="/login" element={<Page title="Log in" />} />
-          <Route path="/register" element={<Page title="Sign up" />} />
+            {/* Admin */}
+            <Route path="/admin/reports" element={<Reports />} />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Auth */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </main>
-      <footer className="text-center py-8 text-sm text-gray-500">Karuna • Built with compassion</footer>
+
+      <footer className="text-center py-8 text-sm text-gray-500">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="card p-4">
+            <p>
+              Karuna • Building a circle of giving with small acts of compassion.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
