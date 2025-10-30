@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { connectApi } from "./api";
+import { gratitudeApi } from "../gratitude/api";
 import { useState } from "react";
 import type { Message } from "../../lib/mockServer";
 
@@ -8,6 +9,9 @@ export default function Thread() {
   const { id } = useParams();
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  const [gratitudeText, setGratitudeText] = useState("");
+  const [showGratitude, setShowGratitude] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const { data: thread, isLoading } = useQuery({
     queryKey: ["thread", id],
@@ -28,6 +32,17 @@ export default function Thread() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["thread", id] });
       qc.invalidateQueries({ queryKey: ["connections"] });
+      setShowGratitude(true); // show gratitude input after completion
+    }
+  });
+
+  const sendGratitude = useMutation({
+    mutationFn: () => gratitudeApi.create(id!, "u1", gratitudeText), // mock to first user; backend will fix later
+    onSuccess: () => {
+      setSuccess(true);
+      setGratitudeText("");
+      setShowGratitude(false);
+      qc.invalidateQueries({ queryKey: ["gratitude"] });
     }
   });
 
@@ -68,14 +83,52 @@ export default function Thread() {
         </form>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-3">
         <button
           onClick={() => complete.mutate()}
-          className="btn btn-secondary"
-          disabled={complete.isPending || thread.connection.status !== "active"}
+          className="btn btn-secondary w-fit"
+          disabled={complete.isPending || thread.connection.status === "completed"}
         >
-          {thread.connection.status === "completed" ? "Completed" : complete.isPending ? "Marking…" : "Mark completed"}
+          {thread.connection.status === "completed"
+            ? "Completed"
+            : complete.isPending
+            ? "Marking…"
+            : "Mark Completed"}
         </button>
+
+        {showGratitude && (
+          <div className="card p-4 space-y-2 max-w-md">
+            <h2 className="text-lg font-semibold">Leave a gratitude note</h2>
+            <textarea
+              value={gratitudeText}
+              onChange={(e) => setGratitudeText(e.target.value)}
+              rows={3}
+              className="w-full border rounded-xl px-3 py-2"
+              placeholder="Write a short thank-you message…"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => sendGratitude.mutate()}
+                disabled={sendGratitude.isPending || !gratitudeText.trim()}
+                className="btn btn-primary"
+              >
+                {sendGratitude.isPending ? "Sending…" : "Send Gratitude"}
+              </button>
+              <button
+                onClick={() => setShowGratitude(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="text-emerald-700 font-medium">
+            Gratitude note sent successfully!
+          </div>
+        )}
       </div>
     </section>
   );
